@@ -1,0 +1,122 @@
+locations = Allegheny_County_PA # change to allegheny when running for real
+start_date = 1999-Jan-01
+end_date = 2020-Dec-31
+
+# household 10x
+# neighborhood 1.1x
+
+# fred_job -k test -p final_contagion.fred
+
+include_global_variable = start_age
+
+enable_health_records = 0
+ORU.enable_health_records = 0
+verbose = 0
+debug = 0
+quality_control = 0
+
+enable_visualization_layer = 0
+
+start_age = 18
+
+# Background death (see Mortality)
+use FRED::Mortality
+
+include_place = Household
+include_place = Neighborhood
+include_place = Workplace
+
+include_condition = ORU
+
+ORU.states = Start Inactive Active NU PU MU OUD Rx DeathOd #Death
+
+
+state ORU.Start {
+	wait(0)
+	if (age>=start_age, race==white) then next(Active)
+	if (age>=start_age, race==african_american) then next(Active)
+	default(Inactive)
+}
+
+state ORU.Inactive {
+	wait(30*24)
+	if (age>=start_age, race==white) then next(Active)
+	if (age>=start_age, race==african_american) then next(Active)
+	default(Inactive)
+}
+
+state ORU.Active {
+	wait(0)
+	next(PU) with prob(0.004081069)
+	next(MU) with prob(0.02597196)
+	next(OUD) with prob(0.03966427)
+	next(Rx) with prob(0.005203494)
+	next(DeathOd) with prob(0)
+	#next(Death) with prob(0)
+	default(NU)
+}
+
+state ORU.NU {
+	wait(24*30)
+	next(PU) with prob(0.003945412833333334) # avg
+	if (total_percent_of_ORU.OUD_in_Household_excluding_me >= 0.5) then next(MU) with prob(0.01)
+	if (total_percent_of_ORU.OUD_in_Neighborhood_excluding_me >= 0.3) then next(MU) with prob(0.0011)
+	next(MU) with prob(0.001)
+	if (total_percent_of_ORU.OUD_in_Household_excluding_me >= 0.5) then next(OUD) with prob(0.008)
+	if (total_percent_of_ORU.OUD_in_Neighborhood_excluding_me >= 0.3) then next(OUD) with prob(0.0008800000000000001)
+	next(OUD) with prob(0.0008)
+	default(NU)
+}
+
+state ORU.PU {
+	wait(24*30)
+	next(NU) with prob(0.379)
+	if (total_percent_of_ORU.OUD_in_Household_excluding_me >= 0.5) then next(MU) with prob(0.025556)
+	if (total_percent_of_ORU.OUD_in_Neighborhood_excluding_me >= 0.3) then next(MU) with prob(0.00281116)
+	next(MU) with prob(0.0025556) ## 0.0012778*2
+	# 0.05 original, incorrect
+	if (total_percent_of_ORU.OUD_in_Household_excluding_me >= 0.5) then next(OUD) with prob(0.012778)
+	if (total_percent_of_ORU.OUD_in_Neighborhood_excluding_me >= 0.3) then next(OUD) with prob(0.00140558)
+	next(OUD) with prob(0.0012778) #0.0012778 -- use double of this to be a misuser, change these
+	# 0.0327 original, incorrect
+	default(PU)
+}
+
+
+state ORU.MU {
+	wait(24*30)
+	next(NU) with prob(0.039)
+	if (total_percent_of_ORU.OUD_in_Household_excluding_me >= 0.5) then next(OUD) with prob(0.23)
+	if (total_percent_of_ORU.OUD_in_Neighborhood_excluding_me >= 0.3) then next(OUD) with prob(0.025300000000000003)
+	next(OUD) with prob(0.023)
+	next(DeathOd) with prob(0.0000001305)
+	default(MU)
+}
+
+state ORU.OUD {
+	wait(24*30)
+	next(NU) with prob(0.0162)
+	next(MU) with prob(0.013)
+	next(Rx) with prob(0.011175002833333331) # avg
+	next(DeathOd) with prob(0.0001897131241666667) # avg
+	default(OUD)
+}
+
+state ORU.Rx {	
+	wait(24*30)
+	if (total_percent_of_ORU.OUD_in_Household_excluding_me >= 0.5) then next(OUD) with prob(0.089)
+	if (total_percent_of_ORU.OUD_in_Neighborhood_excluding_me >= 0.3) then next(OUD) with prob(0.00979)
+	next(OUD) with prob(0.0089)
+	next(NU) with prob(0.009)
+	default(Rx)
+}
+
+state ORU.DeathOd {
+	wait()
+	default(DeathOd)
+}
+
+#state ORU.Death {
+#	wait()
+#	default(Death)
+#}
